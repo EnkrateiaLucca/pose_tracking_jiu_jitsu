@@ -57,10 +57,6 @@ def create_pose_tracking_video(video_path):
     return output_path
 
 
-def create_pose_tracking3D_animation():
-    pass
-
-
 def plot_joint_trajectory():
     pass
 
@@ -173,3 +169,76 @@ def create_animation_from_png(folder,anim_output_path='landmarks_plot_animation.
 
     # Close the writer object
     writer.close()
+
+
+def create_landmarks_plot3D_animation(video_path, output_path):      
+    i=0
+    # For video input
+    cap = cv2.VideoCapture(video_path)
+    with mp_pose.Pose(
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5) as pose:
+      while cap.isOpened():
+        success, image = cap.read()
+        if not success:
+          print("Ignoring empty camera frame.")
+          # If loading a video, use 'break' instead of 'continue'.
+          break
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image.flags.writeable = False
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        results = pose.process(image)
+        mp_drawing.plot_landmarks_and_save(
+            results.pose_world_landmarks, mp_pose.POSE_CONNECTIONS, plot_index=i)
+        if cv2.waitKey(1) & 0xFF == 27:
+          break
+        
+        i+=1
+        
+
+    cap.release()
+    create_animation_from_png(folder=".", anim_output_path=output_path)
+
+
+def create_video_clip(video_path: str, output_path: str, start_time: str, 
+                      length: int):
+    """
+    Creates a video clip from a video file using ffmpeg.
+    """
+    
+    os.system(f"ffmpeg -ss {start_time} -i input.mp4 -t {length} -c:v libx264 -c:a copy {output_path}")
+    print(f"clip created at: {output_path}")
+    
+    return output_path
+
+
+def get_pose_coords(video_path: str):
+    """
+    Gets the pose coordinates for a given video and returns
+    a list where each element is a pose_landmarks object from
+    mediapipe (or something like that...).
+    """
+    pose_coords = []
+    # For webcam input:
+    cap = cv2.VideoCapture(video_path)
+    with mp_pose.Pose(min_detection_confidence=0.5,
+                      min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                print("Ignoring empty camera frame.")
+                break
+            # To improve performance, optinally mark the iamge as 
+            # not writeable to pass by reference.
+            image.flags.writeable = False
+            image= cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = pose.process(image)
+            pose_coords.append(results.pose_landmarks)
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+        
+    cap.release()
+    print("Pose video created!")
+    
+    return pose_coords
