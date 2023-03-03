@@ -297,3 +297,61 @@ def create_joint_trace(video_path,body_part_index=32, color_rgb=(255,0,0)):
     # Release the video capture and destroy all windows
     cap.release()
     cv2.destroyAllWindows()
+
+
+def create_joint_trace_video(video_path,body_part_index=32, color_rgb=(255,0,0)):
+    """
+    This function creates a trace of the body part being tracked.
+    body_part_index: The index of the body part being tracked.
+    video_path: The path to the video being analysed.
+    """
+    # Initialize MediaPipe Pose modelpose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+    # Initialize OpenCV VideoCapture object to capture video from the camera
+    cap = cv2.VideoCapture(video_path)
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    output_path = pathlib.Path(video_path).stem + "_trace.mp4" 
+    out = cv2.VideoWriter(output_path, fourcc, 30.0, (frame_width, frame_height))
+
+    # Create an empty list to store the trace of the body part being tracked
+    trace = []
+
+    with mp_pose.Pose(min_detection_confidence=0.5,
+                        min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                print("Ignoring empty camera frame.")
+                break
+
+            # Convert the frame to RGB format
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # Process the frame with MediaPipe Pose model
+            results = pose.process(image)
+
+            # Check if any body parts are detected
+            if results.pose_landmarks:
+                # Get the x,y coordinates of the body part being tracked (in this case, the right elbow)
+                x, y = int(results.pose_landmarks.landmark[body_part_index].x * image.shape[1]), int(results.pose_landmarks.landmark[body_part_index].y * image.shape[0])
+                
+                # Add the coordinates to the trace list
+                trace.append((x, y))
+
+                # Draw the trace on the image
+                for i in range(len(trace)-1):
+                    cv2.line(image, trace[i], trace[i+1], color_rgb, thickness=2)
+            
+            # Convert the image back to BGR format for display
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+            # Display the image
+            out.write(image)
+            if cv2.waitKey(5) & 0xFF == 27:
+                break
+        
+    cap.release()
+    out.release()
+    print("Joint Trace video created!")
