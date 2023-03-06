@@ -139,7 +139,7 @@ def save_compressed_video(save_path):
     Compresses a .mp4 video file using ffmpeg.
     """
     # Compressed video path
-    compressed_path = f"./{save_path[:-4]}_compressed.mp4"
+    compressed_path = f"{save_path[:-4]}_compressed.mp4"
 
     os.system(f"ffmpeg -i {save_path} -vcodec libx264 {compressed_path}")
     
