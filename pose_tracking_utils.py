@@ -6,6 +6,8 @@ import pathlib
 import plotly.express as px
 import cv2
 import mediapipe as mp
+import matplotlib.pyplot as plt
+import numpy as np
 # MediaPipe imports
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -355,3 +357,93 @@ def create_joint_trace_video(video_path,body_part_index=32, color_rgb=(255,0,0))
     cap.release()
     out.release()
     print("Joint Trace video created!")
+
+
+def get_joint_trace_data(video_path, body_part_index,xmin=300,xmax=1000,
+                             ymin=200,ymax=800):
+    """
+    Creates a graph with the tracing of a particular body part,
+    while executing a certain movement.
+    """
+    cap = cv2.VideoCapture(video_path)
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+
+    # Create an empty list to store the trace of the body part being tracked
+    trace = []
+    i = 0
+    with mp_pose.Pose(min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                print("Ignoring empty camera frame.")
+                break
+
+            # Convert the frame to RGB format
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # Process the frame with MediaPipe Pose model
+            results = pose.process(image)
+
+            # Check if any body parts are detected
+            if results.pose_landmarks:
+                # Get the x,y coordinates of the body part being tracked (in this case, the right elbow)
+                x, y = int(results.pose_landmarks.landmark[body_part_index].x * image.shape[1]), int(results.pose_landmarks.landmark[body_part_index].y * image.shape[0])
+
+                # Add the coordinates to the trace list
+                trace.append((x, y))
+
+                # Plot the trace on the graph
+                fig, ax = plt.subplots()
+                #ax.imshow(image)
+                ax.set_xlim(xmin,xmax)
+                ax.set_ylim(ymin,ymax)
+                ax.invert_yaxis()
+                ax.plot(np.array(trace)[:, 0], np.array(trace)[:, 1], color='r')
+                # plt.savefig(f'joint_trace{i}.png')
+                # plt.close()
+                i+=1
+                plt.pause(0.00000000001)
+                clear_output(wait=True)
+                # Display the graph
+                #plt.show()
+            
+            if cv2.waitKey(5) & 0xFF == 27:
+                break
+        
+        cap.release()
+        
+        return trace
+    
+        
+
+def find_individual_traces(trace,window_size=60, color_plot="r"):
+    """
+    Function that takes in a liste of tuples containing x,y coordinates
+    and plots them as different clips with varying sizes to allow the user to find
+    the point where a full repetition has been completed
+    """
+    
+    clip_size = 0
+    for i in range(len(trace)//window_size):
+        plt.plot(np.array(trace[clip_size:clip_size+window_size])[:, 0], np.array(trace[clip_size:clip_size+window_size])[:, 1], color=color_plot)
+        plt.gca().invert_yaxis()
+        plt.title(f"Trace, clip size = {clip_size}")
+        plt.show()
+        clip_size+=window_size
+
+
+def get_individual_traces(trace, clip_size):
+    num_clips = len(trace)//clip_size
+    trace_clips = []
+    i = 0
+    for clip in range(num_clips):
+        trace_clips.append(trace[i:i+clip_size])
+        i+=clip_size
+    
+    return trace_clips
+
+
+def get_mean_trace(traces):
+    return np.mean(np.array(traces),axis=0)
